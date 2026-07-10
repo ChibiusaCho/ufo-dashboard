@@ -70,8 +70,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-FARBE_UFO  = "#00d4ff"  # cyan
-FARBE_FILM = "#7b2ff7"  # violett
+FARBE_UFO  = "#00d4ff"  
+FARBE_FILM = "#7b2ff7"  
 
 MONATSNAMEN = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
                "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
@@ -79,7 +79,7 @@ MONATSNAMEN = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
 # Daten laden
 @st.cache_data
 def lade_daten():
-    # Nur benötigte Spalten laden — spart Speicher (wichtig für Streamlit Cloud)
+    # Nur benötigte Spalten laden
     filme = pd.read_csv("Film_Datensatz_Final.csv",
                         usecols=["release_date"], parse_dates=["release_date"])
     ufos  = pd.read_csv("Ufo_Datensatz_Final.csv",
