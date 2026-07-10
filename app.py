@@ -95,57 +95,65 @@ filme, ufos = lade_daten()
 
 # Sidebar — Steuerung
 st.sidebar.title("Analyse-Steuerung")
-st.sidebar.caption("Alle Diagramme reagieren live auf die Auswahl.")
+st.sidebar.caption("Einstellungen wählen, dann unten auf **Aktualisieren** klicken.")
 
-st.sidebar.markdown("##### ⏱ Zeitraum & Fenster")
-jahr_von, jahr_bis = st.sidebar.slider(
-    "Zeitraum (Jahre)", 2000, 2021, (2000, 2021)
-)
+# Formular: das Dashboard rechnet erst beim Klick auf "Aktualisieren" neu —
+# nicht bei jeder Bewegung am Regler. Das schont den (kostenlosen) Server.
+with st.sidebar.form("steuerung", border=False):
+    st.markdown("##### Zeitraum & Fenster")
+    jahr_von, jahr_bis = st.slider(
+        "Zeitraum (Jahre)", 2000, 2021, (2000, 2021)
+    )
 
-fenster = st.sidebar.radio(
-    "Zeitfenster / Glättung (Monate)",
-    [2, 5, 7, 9, 12],
-    index=1,
-    horizontal=True,
-    help="Gleitender Durchschnitt über die monatlichen Werte — "
-         "größeres Fenster = glattere Kurven, Trends besser sichtbar."
-)
+    fenster = st.radio(
+        "Zeitfenster / Glättung (Monate)",
+        [2, 5, 7, 9, 12],
+        index=1,
+        horizontal=True,
+        help="Gleitender Durchschnitt über die monatlichen Werte — "
+             "größeres Fenster = glattere Kurven, Trends besser sichtbar."
+    )
 
-st.sidebar.markdown("##### Daten-Filter")
-laender = st.sidebar.multiselect(
-    "UFO-Sichtungen: Länder",
-    options=sorted(ufos["country"].dropna().unique()),
-    default=[],
-    help="Leer = alle Länder"
-)
+    st.markdown("##### Daten-Filter")
+    laender = st.multiselect(
+        "UFO-Sichtungen: Länder",
+        options=sorted(ufos["country"].dropna().unique()),
+        default=[],
+        help="Leer = alle Länder"
+    )
 
-st.sidebar.markdown("##### Darstellung")
-alle_fenster = st.sidebar.checkbox(
-    "Alle Zeitfenster vergleichen", value=False,
-    help="Zeigt im Tab 'Zeitverlauf' zusätzlich alle Fenster (2-12 Monate) "
-         "übereinander sowie die Korrelation je Fenstergröße."
-)
+    st.markdown("##### Darstellung")
+    alle_fenster = st.checkbox(
+        "Alle Zeitfenster vergleichen", value=False,
+        help="Zeigt im Tab 'Zeitverlauf' zusätzlich alle Fenster (2-12 Monate) "
+             "übereinander sowie die Korrelation je Fenstergröße."
+    )
 
-normalisieren = st.sidebar.checkbox(
-    "Kurven normalisieren (z-Score)", value=True,
-    help="Bringt beide Reihen auf dieselbe Skala — nur so sind sie fair vergleichbar."
-)
+    normalisieren = st.checkbox(
+        "Kurven normalisieren (z-Score)", value=True,
+        help="Bringt beide Reihen auf dieselbe Skala — nur so sind sie fair vergleichbar."
+    )
+
+    st.form_submit_button("Aktualisieren", type="primary", width="stretch")
 
 st.sidebar.markdown("---")
 st.sidebar.caption(
     f"{len(filme):,} Sci-Fi-Filme · {len(ufos):,} Sichtungen".replace(",", ".")
 )
 
-# Filter anwenden
-f = filme[(filme["jahr"] >= jahr_von) & (filme["jahr"] <= jahr_bis)]
-u = ufos[(ufos["jahr"] >= jahr_von) & (ufos["jahr"] <= jahr_bis)]
-if laender:
-    u = u[u["country"].isin(laender)]
+# Filter + monatliche Aggregation (gecacht: gleiche Auswahl = keine Neuberechnung)
+@st.cache_data
+def aggregiere(jahr_von, jahr_bis, laender_tuple):
+    f = filme[(filme["jahr"] >= jahr_von) & (filme["jahr"] <= jahr_bis)]
+    u = ufos[(ufos["jahr"] >= jahr_von) & (ufos["jahr"] <= jahr_bis)]
+    if laender_tuple:
+        u = u[u["country"].isin(list(laender_tuple))]
+    film_m = f.set_index("release_date").resample("MS").size().rename("Filme")
+    ufo_m  = u.set_index("date_time").resample("MS").size().rename("UFOs")
+    df = pd.concat([film_m, ufo_m], axis=1).fillna(0)
+    return f, u, df
 
-# Monatliche Aggregation
-film_m = f.set_index("release_date").resample("MS").size().rename("Filme")
-ufo_m  = u.set_index("date_time").resample("MS").size().rename("UFOs")
-df = pd.concat([film_m, ufo_m], axis=1).fillna(0)
+f, u, df = aggregiere(jahr_von, jahr_bis, tuple(laender))
 
 # Gleitender Durchschnitt (Zeitfenster)
 df["Filme_glatt"] = df["Filme"].rolling(fenster, center=True, min_periods=1).mean()
