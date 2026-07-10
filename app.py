@@ -83,7 +83,9 @@ def lade_daten():
     filme = pd.read_csv("Film_Datensatz_Final.csv",
                         usecols=["release_date"], parse_dates=["release_date"])
     ufos  = pd.read_csv("Ufo_Datensatz_Final.csv",
-                        usecols=["country", "date_time"], parse_dates=["date_time"])
+                        usecols=["country", "date_time",
+                                 "city_latitude", "city_longitude"],
+                        parse_dates=["date_time"])
     ufos["country"] = ufos["country"].astype("category")
     filme["jahr"]  = filme["release_date"].dt.year
     filme["monat"] = filme["release_date"].dt.month
@@ -97,7 +99,7 @@ filme, ufos = lade_daten()
 st.sidebar.title("Analyse-Steuerung")
 st.sidebar.caption("Einstellungen wählen, dann unten auf **Aktualisieren** klicken.")
 
-# Formular: das Dashboard rechnet erst beim Klick auf "Aktualisieren" neu —
+# Formular: das Dashboard rechnet erst beim Klick auf "Aktualisieren" neu
 # nicht bei jeder Bewegung am Regler. Das schont den (kostenlosen) Server.
 with st.sidebar.form("steuerung", border=False):
     st.markdown("##### Zeitraum & Fenster")
@@ -189,8 +191,8 @@ c4.metric("Spearman ρ", f"{spearman_r:+.3f}",
           help="Rang-Korrelation — robust gegen Ausreißer")
 
 # Tabs
-tab1, tab2, tab3, tab4 = st.tabs(
-    ["Zeitverlauf", "Korrelation", "Monats-Cluster", "Zeiträume vergleichen"]
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["Zeitverlauf", "Korrelation", "Monats-Cluster", "Zeiträume vergleichen", "Heatmap"]
 )
 
 with tab1:
@@ -412,3 +414,92 @@ with tab4:
     st.plotly_chart(fig, width="stretch")
     st.caption("Normalisierte Monatsprofile (z-Score) — so siehst du sofort, "
                "ob sich das saisonale Muster zwischen den Zeiträumen verschoben hat.")
+
+WOCHENTAGE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+
+with tab5:
+    st.subheader("Anpassbare Heatmap")
+    ansicht = st.radio(
+        "Ansicht", ["Weltkarte (Sichtungsdichte)", "Kalender (Zeitmuster)"],
+        horizontal=True, key="hm_ansicht"
+    )
+
+    if ansicht.startswith("Weltkarte"):
+        st.caption("Dichte der UFO-Sichtungen im gewählten Zeitraum. "
+                   "Koordinaten liegen für rund 83 % der Meldungen vor.")
+
+        radius = st.slider("Glühradius der Heatmap", 5, 30, 12,
+                           help="Größerer Radius = weichere, großflächigere Darstellung.")
+
+        @st.cache_data
+        def geo_aggregation(jahr_von, jahr_bis, laender_tuple):
+            g = ufos[(ufos["jahr"] >= jahr_von) & (ufos["jahr"] <= jahr_bis)]
+            if laender_tuple:
+                g = g[g["country"].isin(list(laender_tuple))]
+            g = g.dropna(subset=["city_latitude", "city_longitude"])
+            g = g.assign(lat=g["city_latitude"].round(1),
+                         lon=g["city_longitude"].round(1))
+            return g.groupby(["lat", "lon"]).size().reset_index(name="Sichtungen")
+
+        geo = geo_aggregation(jahr_von, jahr_bis, tuple(laender))
+        fig = px.density_map(
+            geo, lat="lat", lon="lon", z="Sichtungen",
+            radius=radius, zoom=1.2, center=dict(lat=30, lon=-40),
+            map_style="carto-darkmatter",
+            color_continuous_scale=["#0b0f1a", FARBE_UFO, "#ffffff"],
+        )
+        fig.update_layout(height=560, margin=dict(t=10, b=10, l=0, r=0))
+        st.plotly_chart(fig, width="stretch")
+        st.caption(f"{int(geo['Sichtungen'].sum()):,} Sichtungen mit Koordinaten "
+                   f"im gewählten Zeitraum.".replace(",", "."))
+
+    else:
+        col_a, col_b, col_c = st.columns(3)
+        with col_a:
+            quelle = st.radio("Datensatz", ["UFO-Sichtungen", "Sci-Fi-Filme"],
+                              key="hm_quelle")
+        daten = u if quelle == "UFO-Sichtungen" else f
+        zeitspalte = "date_time" if quelle == "UFO-Sichtungen" else "release_date"
+
+        dims = ["Jahr × Monat", "Monat × Wochentag"]
+        if quelle == "UFO-Sichtungen":
+            dims.append("Wochentag × Uhrzeit")
+        with col_b:
+            dimension = st.selectbox("Dimensionen", dims, key="hm_dim")
+        with col_c:
+            farbskala = st.selectbox(
+                "Farbskala", ["Teal", "Purpor", "Viridis", "Plasma", "Magma"],
+                index=0 if quelle == "UFO-Sichtungen" else 1, key="hm_farbe")
+
+        d = daten.copy()
+        d["wochentag"] = d[zeitspalte].dt.dayofweek
+        d["stunde"] = d[zeitspalte].dt.hour
+
+        if dimension == "Jahr × Monat":
+            heat = d.groupby(["jahr", "monat"]).size().unstack(fill_value=0)
+            x_labels, x_titel, y_titel = MONATSNAMEN[:heat.shape[1]], "Monat", "Jahr"
+        elif dimension == "Monat × Wochentag":
+            heat = d.groupby(["monat", "wochentag"]).size().unstack(fill_value=0)
+            heat.index = [MONATSNAMEN[m - 1] for m in heat.index]
+            x_labels, x_titel, y_titel = [WOCHENTAGE[i] for i in heat.columns], "Wochentag", "Monat"
+        else:  # Wochentag × Uhrzeit
+            heat = d.groupby(["wochentag", "stunde"]).size().unstack(fill_value=0)
+            heat.index = [WOCHENTAGE[i] for i in heat.index]
+            x_labels, x_titel, y_titel = list(heat.columns), "Uhrzeit (Stunde)", "Wochentag"
+
+        fig = px.imshow(
+            heat, x=x_labels, aspect="auto",
+            labels=dict(x=x_titel, y=y_titel, color="Anzahl"),
+            color_continuous_scale=farbskala,
+        )
+        fig.update_layout(height=520, template="plotly_dark",
+                          title=f"{quelle}: {dimension}",
+                          margin=dict(t=50, b=10))
+        st.plotly_chart(fig, width="stretch")
+
+        if dimension == "Wochentag × Uhrzeit":
+            st.caption("Typisches Muster: Die meisten Sichtungen werden abends "
+                       "zwischen 20 und 23 Uhr gemeldet, mit leichtem Übergewicht "
+                       "am Wochenende.")
+        st.caption("Die Heatmap nutzt die Auswahl aus der Seitenleiste "
+                   "(Zeitraum und Länderfilter).")
