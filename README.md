@@ -1,10 +1,10 @@
 # UFO & Sci-Fi Dashboard
-Ein Streamlit-Dashboard das UFO-Sichtungen und Scinece-Fiction-Filmrealeases monatlich gegenüberstellt und auf Zusammenhänge untersucht.
+Ein Streamlit-Dashboard das UFO-Sichtungen und Science-Fiction-Filmreleases monatlich gegenüberstellt und auf Zusammenhänge untersucht.
 
-#Live-Demo
+# Live-Demo
 Hier klicken, um das Dashboard direkt im Browser zu öffnen, keine Installation nötig:
 
-> https://DEINE-APP.streamlit.app (Link nach dem Deploy hier eintragen)
+> https://ufo-movie-dashboard-projektarbeit.streamlit.app/
 
 Hinweis: Wurde die App länger nicht genutzt, erscheint zuerst ein Button
 „Yes, get this app back up" —> einmal klicken und ca. 30 Sekunden warten.
