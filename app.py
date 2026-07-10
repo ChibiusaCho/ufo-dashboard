@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-🛸 Sci-Fi-Filme & UFO-Sichtungen — Interaktives Dashboard
+Sci-Fi-Filme & UFO-Sichtungen — Interaktives Dashboard
 Zeitfenster-Analyse (2/5/7 Monate) · Monats-Cluster · Korrelation
 """
 
@@ -12,9 +12,7 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 from scipy import stats
 
-# ─────────────────────────────────────────────
 # Seiten-Setup & Styling
-# ─────────────────────────────────────────────
 st.set_page_config(
     page_title="UFOs & Sci-Fi Dashboard",
     page_icon="🛸",
@@ -41,13 +39,12 @@ FARBE_FILM = "#7b2ff7"   # violett
 MONATSNAMEN = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
                "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
 
-# ─────────────────────────────────────────────
+
 # Daten laden
-# ─────────────────────────────────────────────
 @st.cache_data
 def lade_daten():
-    filme = pd.read_csv("Datensätze/Film_Datensatz_Final.csv", parse_dates=["release_date"])
-    ufos  = pd.read_csv("Datensätze/Ufo_Datensatz_Final.csv",  parse_dates=["date_time"])
+    filme = pd.read_csv("Film_Datensatz_Final.csv", parse_dates=["release_date"])
+    ufos  = pd.read_csv("Ufo_Datensatz_Final.csv",  parse_dates=["date_time"])
     filme["jahr"]  = filme["release_date"].dt.year
     filme["monat"] = filme["release_date"].dt.month
     ufos["jahr"]   = ufos["date_time"].dt.year
@@ -56,9 +53,7 @@ def lade_daten():
 
 filme, ufos = lade_daten()
 
-# ─────────────────────────────────────────────
 # Sidebar — Steuerung
-# ─────────────────────────────────────────────
 st.sidebar.title("🎛️ Einstellungen")
 
 jahr_von, jahr_bis = st.sidebar.slider(
@@ -109,10 +104,8 @@ df["UFOs_glatt"]  = df["UFOs"].rolling(fenster, center=True, min_periods=1).mean
 def z(s):
     return (s - s.mean()) / s.std() if s.std() > 0 else s * 0
 
-# ─────────────────────────────────────────────
 # Kopfbereich
-# ─────────────────────────────────────────────
-st.title("🛸 UFO-Sichtungen & Sci-Fi-Filme")
+st.title("UFO-Sichtungen & Sci-Fi-Filme")
 st.markdown(
     f"**Zeitraum {jahr_von}–{jahr_bis}** · Zeitfenster: **{fenster} Monate** · "
     f"{'Länder: ' + ', '.join(laender) if laender else 'alle Länder'}"
@@ -129,14 +122,12 @@ c3.metric("Pearson r", f"{pearson_r:+.3f}",
 c4.metric("Spearman ρ", f"{spearman_r:+.3f}",
           help="Rang-Korrelation — robust gegen Ausreißer")
 
-# ─────────────────────────────────────────────
 # Tabs
-# ─────────────────────────────────────────────
 tab1, tab2, tab3, tab4 = st.tabs(
-    ["📈 Zeitverlauf", "🔗 Korrelation", "🗓️ Monats-Cluster", "⚖️ Zeiträume vergleichen"]
+    ["Zeitverlauf", "Korrelation", "Monats-Cluster", "Zeiträume vergleichen"]
 )
 
-# ── Tab 1: Zeitverlauf ───────────────────────
+# Tab 1: Zeitverlauf
 with tab1:
     st.subheader("Monatlicher Verlauf im direkten Vergleich")
 
@@ -171,7 +162,7 @@ with tab1:
     st.plotly_chart(fig, width="stretch")
     st.caption(f"Dünne Linien = Rohdaten, dicke Linien = gleitender {fenster}-Monats-Durchschnitt.")
 
-# ── Tab 2: Korrelation ───────────────────────
+# Tab 2: Korrelation
 with tab2:
     st.subheader("Wie stark hängen die Reihen zusammen?")
     col_a, col_b = st.columns([1, 1])
@@ -189,7 +180,7 @@ with tab2:
         fig.update_layout(height=460, template="plotly_dark",
                           margin=dict(t=30, b=10))
         st.plotly_chart(fig, width="stretch")
-        signifikanz = "signifikant ✅" if pearson_p < 0.05 else "nicht signifikant ⚠️"
+        signifikanz = "signifikant" if pearson_p < 0.05 else "nicht signifikant"
         st.caption(f"Pearson r = {pearson_r:+.3f} (p = {pearson_p:.2g}, {signifikanz}) · "
                    f"Spearman ρ = {spearman_r:+.3f}")
 
@@ -222,7 +213,7 @@ with tab2:
                "was allein schon Korrelation erzeugt. Die Lag-Analyse und der "
                "Zeitraum-Vergleich helfen, echte Muster von Trend-Artefakten zu trennen.")
 
-# ── Tab 3: Monats-Cluster ────────────────────
+# Tab 3: Monats-Cluster
 with tab3:
     st.subheader("Saisonale Muster — Clusterung nach Monaten")
 
@@ -231,8 +222,8 @@ with tab3:
     film_heat = f.groupby(["jahr", "monat"]).size().unstack(fill_value=0)
 
     for col, heat, name, scale in [
-        (col_a, ufo_heat, "🛸 UFO-Sichtungen", "Teal"),
-        (col_b, film_heat, "🎬 Sci-Fi-Releases", "Purpor"),
+        (col_a, ufo_heat, "UFO-Sichtungen", "Teal"),
+        (col_b, film_heat, "Sci-Fi-Releases", "Purpor"),
     ]:
         with col:
             fig = px.imshow(
@@ -260,9 +251,9 @@ with tab3:
     saison_r = float(np.corrcoef(ufo_profil, film_profil)[0, 1])
     st.caption(f"Korrelation der Monatsprofile: r = {saison_r:+.3f} — "
                "zeigt, ob beide Phänomene denselben Jahresrhythmus haben "
-               "(UFOs typischerweise im Sommer ☀️, Releases oft vor Sommer/Weihnachten).")
+               "(UFOs typischerweise im Sommer, Releases oft vor Sommer/Weihnachten).")
 
-# ── Tab 4: Zeiträume vergleichen ─────────────
+# Tab 4: Zeiträume vergleichen
 with tab4:
     st.subheader("Zwei Zeiträume direkt gegenüberstellen")
     col_a, col_b = st.columns(2)
