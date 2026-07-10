@@ -79,8 +79,12 @@ MONATSNAMEN = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
 # Daten laden
 @st.cache_data
 def lade_daten():
-    filme = pd.read_csv("Film_Datensatz_Final.csv", parse_dates=["release_date"])
-    ufos  = pd.read_csv("Ufo_Datensatz_Final.csv",  parse_dates=["date_time"])
+    # Nur benötigte Spalten laden — spart Speicher (wichtig für Streamlit Cloud)
+    filme = pd.read_csv("Film_Datensatz_Final.csv",
+                        usecols=["release_date"], parse_dates=["release_date"])
+    ufos  = pd.read_csv("Ufo_Datensatz_Final.csv",
+                        usecols=["country", "date_time"], parse_dates=["date_time"])
+    ufos["country"] = ufos["country"].astype("category")
     filme["jahr"]  = filme["release_date"].dt.year
     filme["monat"] = filme["release_date"].dt.month
     ufos["jahr"]   = ufos["date_time"].dt.year
