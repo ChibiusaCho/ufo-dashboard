@@ -176,7 +176,7 @@ st.caption(
     "Hinweis: Diese App läuft auf einem kostenlosen Server mit begrenzten Ressourcen. "
     "Nach einem Klick auf 'Aktualisieren' bitte kurz warten, bis die Diagramme neu geladen "
     "sind, bevor die nächste Änderung folgt. Sehr viele Änderungen in schneller Folge können "
-    "die App vorübergehend zum Absturz bringen — in dem Fall einfach die Seite neu laden."
+    "die App vorübergehend zum Absturz bringen, in dem Fall einfach die Seite neu laden."
 )
 
 pearson_r, pearson_p = stats.pearsonr(df["Filme_glatt"], df["UFOs_glatt"])
