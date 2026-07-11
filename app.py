@@ -480,7 +480,11 @@ with tab4:
     st.caption("Normalisierte Monatsprofile (z-Score) — so siehst du sofort, "
                "ob sich das saisonale Muster zwischen den Zeiträumen verschoben hat.")
 
-with tab5:
+# NEU: @st.fragment sorgt dafür, dass die Regler in diesem Tab nur den Tab
+# selbst neu berechnen — nicht alle Diagramme der ganzen App. Das verhindert
+# die Abstürze beim Anpassen des Glühradius.
+@st.fragment
+def heatmap_tab():
     st.subheader("Anpassbare Heatmap")
     ansicht = st.radio(
         "Ansicht", ["Weltkarte (Sichtungsdichte)", "Kalender (Zeitmuster)"],
@@ -577,3 +581,6 @@ with tab5:
                        "am Wochenende.")
         st.caption("Die Heatmap nutzt die Auswahl aus der Seitenleiste "
                    "(Zeitraum und Länderfilter).")
+
+with tab5:
+    heatmap_tab()
