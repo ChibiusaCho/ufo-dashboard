@@ -15,7 +15,7 @@ from scipy import stats
 # Seiten-Setup & Styling
 st.set_page_config(
     page_title="UFOs & Sci-Fi Dashboard",
-        layout="wide",
+    layout="wide",
 )
 
 st.markdown("""
@@ -35,7 +35,7 @@ st.markdown("""
         border-radius: 12px; padding: 12px 16px;
     }
 
-    /* ── Sidebar ───────────────────────────── */
+    /* Sidebar */
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg,
             rgba(123, 47, 247, 0.14) 0%,
@@ -70,11 +70,61 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-FARBE_UFO  = "#00d4ff"  
-FARBE_FILM = "#7b2ff7"  
+FARBE_UFO  = "#00d4ff"
+FARBE_FILM = "#7b2ff7"
 
 MONATSNAMEN = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun",
                "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"]
+
+WOCHENTAGE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+
+# NEU: Landes-Mittelpunkte für Sichtungen ohne Stadt-Koordinaten
+LAENDER_LAT = {
+    "USA": 39.8, "United Kingdom": 54.0, "Canada": 56.1, "Australia": -25.3,
+    "India": 20.6, "Mexico": 23.6, "South Africa": -30.6, "New Zealand": -41.8,
+    "Germany": 51.2, "Ireland": 53.4, "Netherlands": 52.2, "Spain": 40.2,
+    "Puerto Rico": 18.2, "Brazil": -10.8, "France": 46.6, "Philippines": 12.9,
+    "Malaysia": 4.1, "Portugal": 39.6, "Greece": 39.0, "Italy": 42.5,
+    "Japan": 36.2, "Turkey": 39.0, "China": 35.9, "Norway": 61.0,
+    "Israel": 31.4, "Iran": 32.4, "Sweden": 62.2, "Belgium": 50.6,
+    "Denmark": 56.0, "Pakistan": 30.4, "Iraq": 33.2, "Indonesia": -2.5,
+    "Finland": 64.5, "Poland": 52.1, "Switzerland": 46.8, "Romania": 45.9,
+    "Croatia": 45.1, "Cyprus": 35.1, "Thailand": 15.1, "Argentina": -34.0,
+    "Sri Lanka": 7.9, "Colombia": 4.6, "Costa Rica": 9.7,
+    "United Arab Emirates": 24.0, "Venezuela": 7.1, "Russia": 61.5,
+    "Singapore": 1.35, "Bahamas": 24.7, "Hungary": 47.2, "Peru": -9.2,
+    "Bulgaria": 42.7, "South Korea": 36.5, "Lithuania": 55.2, "Chile": -35.7,
+    "Jamaica": 18.1, "Estonia": 58.6, "Lebanon": 33.9,
+    "Dominican Republic": 18.7, "Afghanistan": 33.9, "Kuwait": 29.3,
+    "Serbia": 44.0, "Egypt": 26.8, "Ecuador": -1.8, "Iceland": 64.9,
+    "Ukraine": 48.4, "Czech Republic": 49.8, "Panama": 8.5,
+    "Virgin Islands (US)": 18.3, "Austria": 47.5, "Jordan": 31.3,
+    "Trinidad and Tobago": 10.4, "Saudi Arabia": 24.2, "Malta": 35.9,
+    "Guatemala": 15.8, "Kosovo": 42.6, "Bangladesh": 23.7,
+}
+LAENDER_LON = {
+    "USA": -98.6, "United Kingdom": -2.5, "Canada": -106.3, "Australia": 133.8,
+    "India": 79.0, "Mexico": -102.6, "South Africa": 22.9, "New Zealand": 172.8,
+    "Germany": 10.4, "Ireland": -8.2, "Netherlands": 5.3, "Spain": -3.6,
+    "Puerto Rico": -66.4, "Brazil": -52.9, "France": 2.4, "Philippines": 121.8,
+    "Malaysia": 109.5, "Portugal": -8.0, "Greece": 22.0, "Italy": 12.5,
+    "Japan": 138.3, "Turkey": 35.2, "China": 104.2, "Norway": 9.0,
+    "Israel": 35.0, "Iran": 53.7, "Sweden": 15.0, "Belgium": 4.7,
+    "Denmark": 9.5, "Pakistan": 69.4, "Iraq": 43.7, "Indonesia": 118.0,
+    "Finland": 26.0, "Poland": 19.4, "Switzerland": 8.2, "Romania": 25.0,
+    "Croatia": 15.2, "Cyprus": 33.4, "Thailand": 101.0, "Argentina": -64.0,
+    "Sri Lanka": 80.8, "Colombia": -74.1, "Costa Rica": -84.0,
+    "United Arab Emirates": 54.0, "Venezuela": -66.2, "Russia": 105.3,
+    "Singapore": 103.8, "Bahamas": -78.0, "Hungary": 19.5, "Peru": -75.0,
+    "Bulgaria": 25.5, "South Korea": 127.9, "Lithuania": 23.9, "Chile": -71.5,
+    "Jamaica": -77.3, "Estonia": 25.0, "Lebanon": 35.9,
+    "Dominican Republic": -70.2, "Afghanistan": 67.7, "Kuwait": 47.5,
+    "Serbia": 21.0, "Egypt": 30.8, "Ecuador": -78.2, "Iceland": -19.0,
+    "Ukraine": 31.2, "Czech Republic": 15.5, "Panama": -80.8,
+    "Virgin Islands (US)": -64.8, "Austria": 14.6, "Jordan": 36.4,
+    "Trinidad and Tobago": -61.3, "Saudi Arabia": 45.1, "Malta": 14.4,
+    "Guatemala": -90.2, "Kosovo": 20.9, "Bangladesh": 90.4,
+}
 
 # Daten laden
 @st.cache_data
@@ -163,6 +213,11 @@ df["UFOs_glatt"]  = df["UFOs"].rolling(fenster, center=True, min_periods=1).mean
 
 def z(s):
     return (s - s.mean()) / s.std() if s.std() > 0 else s * 0
+
+# NEU: Monatsprofil immer vollständig für alle 12 Monate (fehlende = 0).
+# Verhindert den ValueError bei Ländern, die nicht in jedem Monat Sichtungen haben.
+def monatsprofil(d):
+    return d.groupby("monat").size().reindex(range(1, 13), fill_value=0)
 
 # Kopfbereich
 st.title("Zusammenhang zwischen Sci-Fi-Filmveröffentlichungen und globalen UFO-Sichtungsmeldungen")
@@ -296,7 +351,7 @@ with tab2:
         fig.update_layout(height=460, template="plotly_dark",
                           margin=dict(t=30, b=10))
         st.plotly_chart(fig, width="stretch")
-        signifikanz = "signifikant"if pearson_p < 0.05 else "nicht signifikant"
+        signifikanz = "signifikant" if pearson_p < 0.05 else "nicht signifikant"
         st.caption(f"Pearson r = {pearson_r:+.3f} (p = {pearson_p:.2g}, {signifikanz}) · "
                    f"Spearman ρ = {spearman_r:+.3f}")
 
@@ -307,7 +362,7 @@ with tab2:
         max_lag = 12
         lags = range(-max_lag, max_lag + 1)
         lag_r = [df["UFOs_glatt"].corr(df["Filme_glatt"].shift(l)) for l in lags]
-        farben = [FARBE_FILM if r == max(lag_r) else "rgba(150,150,170,0.45)"for r in lag_r]
+        farben = [FARBE_FILM if r == max(lag_r) else "rgba(150,150,170,0.45)" for r in lag_r]
         fig = go.Figure(go.Bar(x=list(lags), y=lag_r, marker_color=farben))
         fig.add_hline(y=0, line_color="white", line_width=1)
         fig.update_layout(
@@ -333,8 +388,12 @@ with tab3:
     st.subheader("Saisonale Muster — Clusterung nach Monaten")
 
     col_a, col_b = st.columns(2)
-    ufo_heat = u.groupby(["jahr", "monat"]).size().unstack(fill_value=0)
-    film_heat = f.groupby(["jahr", "monat"]).size().unstack(fill_value=0)
+    # NEU: .reindex sorgt dafür, dass immer alle 12 Monatsspalten existieren —
+    # sonst verrutschen bei Ländern mit Lücken die Monats-Beschriftungen
+    ufo_heat = (u.groupby(["jahr", "monat"]).size().unstack(fill_value=0)
+                  .reindex(columns=range(1, 13), fill_value=0))
+    film_heat = (f.groupby(["jahr", "monat"]).size().unstack(fill_value=0)
+                   .reindex(columns=range(1, 13), fill_value=0))
 
     for col, heat, name, scale in [
         (col_a, ufo_heat, "UFO-Sichtungen", "Teal"),
@@ -344,7 +403,7 @@ with tab3:
             fig = px.imshow(
                 heat,
                 labels=dict(x="Monat", y="Jahr", color="Anzahl"),
-                x=MONATSNAMEN[:heat.shape[1]],
+                x=MONATSNAMEN,
                 aspect="auto", color_continuous_scale=scale,
             )
             fig.update_layout(height=440, template="plotly_dark",
@@ -352,8 +411,8 @@ with tab3:
             st.plotly_chart(fig, width="stretch")
 
     st.markdown("**Durchschnittliches Monatsprofil (alle Jahre gemittelt, normalisiert)**")
-    ufo_profil = z(u.groupby("monat").size())
-    film_profil = z(f.groupby("monat").size())
+    ufo_profil = z(monatsprofil(u))
+    film_profil = z(monatsprofil(f))
     fig = go.Figure()
     fig.add_trace(go.Bar(x=MONATSNAMEN, y=ufo_profil, name="UFOs",
                          marker_color=FARBE_UFO, opacity=0.85))
@@ -363,8 +422,12 @@ with tab3:
                       yaxis_title="z-Score", legend=dict(orientation="h", y=1.1),
                       margin=dict(t=30, b=10))
     st.plotly_chart(fig, width="stretch")
-    saison_r = float(np.corrcoef(ufo_profil, film_profil)[0, 1])
-    st.caption(f"Korrelation der Monatsprofile: r = {saison_r:+.3f} — "
+    # NEU: abgesichert — bei zu wenigen Daten kein Absturz mehr
+    if ufo_profil.std() > 0 and film_profil.std() > 0:
+        saison_text = f"r = {float(np.corrcoef(ufo_profil, film_profil)[0, 1]):+.3f}"
+    else:
+        saison_text = "nicht berechenbar (zu wenige Daten in der Auswahl)"
+    st.caption(f"Korrelation der Monatsprofile: {saison_text} — "
                "zeigt, ob beide Phänomene denselben Jahresrhythmus haben "
                "(UFOs typischerweise im Sommer, Releases oft vor Sommer/Weihnachten).")
 
@@ -392,20 +455,22 @@ with tab4:
     fB, uB, rB = zeitraum_stats(*z2)
 
     m1, m2, m3 = st.columns(3)
-    m1.metric("Filme A  B", f"{len(fA):,}  {len(fB):,}".replace(",", "."),
+    m1.metric("Filme A B", f"{len(fA):,} {len(fB):,}".replace(",", "."),
               delta=f"{(len(fB)-len(fA))/max(len(fA),1)*100:+.0f} %")
-    m2.metric("Sichtungen A  B", f"{len(uA):,}  {len(uB):,}".replace(",", "."),
+    m2.metric("Sichtungen A B", f"{len(uA):,} {len(uB):,}".replace(",", "."),
               delta=f"{(len(uB)-len(uA))/max(len(uA),1)*100:+.0f} %")
-    m3.metric("Korrelation A  B", f"{rA:+.2f}  {rB:+.2f}")
+    m3.metric("Korrelation A B", f"{rA:+.2f} {rB:+.2f}")
 
     # Monatsprofile beider Zeiträume nebeneinander
     fig = make_subplots(rows=1, cols=2, subplot_titles=(
         f"Zeitraum A · {z1[0]}–{z1[1]}", f"Zeitraum B · {z2[0]}–{z2[1]}"))
     for i, (ff, uu) in enumerate([(fA, uA), (fB, uB)], start=1):
-        fig.add_trace(go.Bar(x=MONATSNAMEN, y=z(uu.groupby("monat").size()),
+        # NEU: monatsprofil() statt groupby — verhindert den ValueError,
+        # wenn ein Land nicht in jedem Monat Sichtungen hat
+        fig.add_trace(go.Bar(x=MONATSNAMEN, y=z(monatsprofil(uu)),
                              name="UFOs", marker_color=FARBE_UFO,
                              showlegend=(i == 1)), row=1, col=i)
-        fig.add_trace(go.Bar(x=MONATSNAMEN, y=z(ff.groupby("monat").size()),
+        fig.add_trace(go.Bar(x=MONATSNAMEN, y=z(monatsprofil(ff)),
                              name="Filme", marker_color=FARBE_FILM,
                              showlegend=(i == 1)), row=1, col=i)
     fig.update_layout(height=400, template="plotly_dark", barmode="group",
@@ -414,8 +479,6 @@ with tab4:
     st.plotly_chart(fig, width="stretch")
     st.caption("Normalisierte Monatsprofile (z-Score) — so siehst du sofort, "
                "ob sich das saisonale Muster zwischen den Zeiträumen verschoben hat.")
-
-WOCHENTAGE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
 with tab5:
     st.subheader("Anpassbare Heatmap")
@@ -426,7 +489,8 @@ with tab5:
 
     if ansicht.startswith("Weltkarte"):
         st.caption("Dichte der UFO-Sichtungen im gewählten Zeitraum. "
-                   "Koordinaten liegen für rund 83 % der Meldungen vor.")
+                   "Meldungen ohne Stadt-Koordinaten (v. a. außerhalb Nordamerikas) "
+                   "werden am Mittelpunkt ihres Landes dargestellt.")
 
         radius = st.slider("Glühradius der Heatmap", 5, 30, 12,
                            help="Größerer Radius = weichere, großflächigere Darstellung.")
@@ -436,6 +500,11 @@ with tab5:
             g = ufos[(ufos["jahr"] >= jahr_von) & (ufos["jahr"] <= jahr_bis)]
             if laender_tuple:
                 g = g[g["country"].isin(list(laender_tuple))]
+            # NEU: fehlende Stadt-Koordinaten durch Landes-Mittelpunkt ersetzen
+            g = g.assign(
+                city_latitude=g["city_latitude"].fillna(g["country"].map(LAENDER_LAT).astype("float")),
+                city_longitude=g["city_longitude"].fillna(g["country"].map(LAENDER_LON).astype("float")),
+            )
             g = g.dropna(subset=["city_latitude", "city_longitude"])
             g = g.assign(lat=g["city_latitude"].round(1),
                          lon=g["city_longitude"].round(1))
@@ -450,7 +519,7 @@ with tab5:
         )
         fig.update_layout(height=560, margin=dict(t=10, b=10, l=0, r=0))
         st.plotly_chart(fig, width="stretch")
-        st.caption(f"{int(geo['Sichtungen'].sum()):,} Sichtungen mit Koordinaten "
+        st.caption(f"{int(geo['Sichtungen'].sum()):,} verortbare Sichtungen "
                    f"im gewählten Zeitraum.".replace(",", "."))
 
     else:
@@ -475,17 +544,22 @@ with tab5:
         d["wochentag"] = d[zeitspalte].dt.dayofweek
         d["stunde"] = d[zeitspalte].dt.hour
 
+        # NEU: .reindex füllt fehlende Monate/Wochentage/Stunden mit 0 auf —
+        # sonst verrutschen die Achsen-Beschriftungen bei lückenhaften Ländern
         if dimension == "Jahr × Monat":
-            heat = d.groupby(["jahr", "monat"]).size().unstack(fill_value=0)
-            x_labels, x_titel, y_titel = MONATSNAMEN[:heat.shape[1]], "Monat", "Jahr"
+            heat = (d.groupby(["jahr", "monat"]).size().unstack(fill_value=0)
+                     .reindex(columns=range(1, 13), fill_value=0))
+            x_labels, x_titel, y_titel = MONATSNAMEN, "Monat", "Jahr"
         elif dimension == "Monat × Wochentag":
-            heat = d.groupby(["monat", "wochentag"]).size().unstack(fill_value=0)
-            heat.index = [MONATSNAMEN[m - 1] for m in heat.index]
-            x_labels, x_titel, y_titel = [WOCHENTAGE[i] for i in heat.columns], "Wochentag", "Monat"
+            heat = (d.groupby(["monat", "wochentag"]).size().unstack(fill_value=0)
+                     .reindex(index=range(1, 13), columns=range(7), fill_value=0))
+            heat.index = MONATSNAMEN
+            x_labels, x_titel, y_titel = WOCHENTAGE, "Wochentag", "Monat"
         else:  # Wochentag × Uhrzeit
-            heat = d.groupby(["wochentag", "stunde"]).size().unstack(fill_value=0)
-            heat.index = [WOCHENTAGE[i] for i in heat.index]
-            x_labels, x_titel, y_titel = list(heat.columns), "Uhrzeit (Stunde)", "Wochentag"
+            heat = (d.groupby(["wochentag", "stunde"]).size().unstack(fill_value=0)
+                     .reindex(index=range(7), columns=range(24), fill_value=0))
+            heat.index = WOCHENTAGE
+            x_labels, x_titel, y_titel = list(range(24)), "Uhrzeit (Stunde)", "Wochentag"
 
         fig = px.imshow(
             heat, x=x_labels, aspect="auto",
