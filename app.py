@@ -480,24 +480,37 @@ with tab4:
     st.caption("Normalisierte Monatsprofile (z-Score) — so siehst du sofort, "
                "ob sich das saisonale Muster zwischen den Zeiträumen verschoben hat.")
 
-# NEU: @st.fragment sorgt dafür, dass die Regler in diesem Tab nur den Tab
-# selbst neu berechnen — nicht alle Diagramme der ganzen App. Das verhindert
-# die Abstürze beim Anpassen des Glühradius.
-@st.fragment
-def heatmap_tab():
+with tab5:
     st.subheader("Anpassbare Heatmap")
-    ansicht = st.radio(
-        "Ansicht", ["Weltkarte (Sichtungsdichte)", "Kalender (Zeitmuster)"],
-        horizontal=True, key="hm_ansicht"
-    )
+
+    # NEU: Einstellungen im Formular — wie in der Sidebar wird erst beim Klick
+    # auf "Anwenden" neu gerechnet, nicht bei jeder Regler-Bewegung.
+    with st.form("heatmap_einstellungen", border=False):
+        col_a, col_b = st.columns([1, 1])
+        with col_a:
+            ansicht = st.radio(
+                "Ansicht", ["Weltkarte (Sichtungsdichte)", "Kalender (Zeitmuster)"],
+                key="hm_ansicht"
+            )
+            radius = st.slider(
+                "Glühradius (nur Weltkarte)", 5, 30, 12,
+                help="Größerer Radius = weichere, großflächigere Darstellung.")
+        with col_b:
+            quelle = st.radio("Datensatz (nur Kalender)",
+                              ["UFO-Sichtungen", "Sci-Fi-Filme"], key="hm_quelle")
+            dimension = st.selectbox(
+                "Dimensionen (nur Kalender)",
+                ["Jahr × Monat", "Monat × Wochentag", "Wochentag × Uhrzeit"],
+                key="hm_dim")
+            farbskala = st.selectbox(
+                "Farbskala (nur Kalender)",
+                ["Teal", "Purpor", "Viridis", "Plasma", "Magma"], key="hm_farbe")
+        st.form_submit_button("Anwenden", type="primary")
 
     if ansicht.startswith("Weltkarte"):
         st.caption("Dichte der UFO-Sichtungen im gewählten Zeitraum. "
                    "Meldungen ohne Stadt-Koordinaten (v. a. außerhalb Nordamerikas) "
                    "werden am Mittelpunkt ihres Landes dargestellt.")
-
-        radius = st.slider("Glühradius der Heatmap", 5, 30, 12,
-                           help="Größerer Radius = weichere, großflächigere Darstellung.")
 
         @st.cache_data
         def geo_aggregation(jahr_von, jahr_bis, laender_tuple):
@@ -527,22 +540,14 @@ def heatmap_tab():
                    f"im gewählten Zeitraum.".replace(",", "."))
 
     else:
-        col_a, col_b, col_c = st.columns(3)
-        with col_a:
-            quelle = st.radio("Datensatz", ["UFO-Sichtungen", "Sci-Fi-Filme"],
-                              key="hm_quelle")
+        # NEU: Filme haben keine Uhrzeit — ungültige Kombination sauber abfangen
+        if quelle == "Sci-Fi-Filme" and dimension == "Wochentag × Uhrzeit":
+            st.info("Für Sci-Fi-Filme liegt keine Uhrzeit vor — es wird "
+                    "stattdessen 'Jahr × Monat' angezeigt.")
+            dimension = "Jahr × Monat"
+
         daten = u if quelle == "UFO-Sichtungen" else f
         zeitspalte = "date_time" if quelle == "UFO-Sichtungen" else "release_date"
-
-        dims = ["Jahr × Monat", "Monat × Wochentag"]
-        if quelle == "UFO-Sichtungen":
-            dims.append("Wochentag × Uhrzeit")
-        with col_b:
-            dimension = st.selectbox("Dimensionen", dims, key="hm_dim")
-        with col_c:
-            farbskala = st.selectbox(
-                "Farbskala", ["Teal", "Purpor", "Viridis", "Plasma", "Magma"],
-                index=0 if quelle == "UFO-Sichtungen" else 1, key="hm_farbe")
 
         d = daten.copy()
         d["wochentag"] = d[zeitspalte].dt.dayofweek
@@ -581,6 +586,3 @@ def heatmap_tab():
                        "am Wochenende.")
         st.caption("Die Heatmap nutzt die Auswahl aus der Seitenleiste "
                    "(Zeitraum und Länderfilter).")
-
-with tab5:
-    heatmap_tab()
